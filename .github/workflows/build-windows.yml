@@ -27,7 +27,7 @@ jobs:
 
     - name: Build EXE with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name "VNCリモートデスクトップ" --icon=icon.ico main.py
+        pyinstaller --onefile --windowed --name "VNCリモートデスクトップ" main.py
 
     - name: Upload EXE artifact
       uses: actions/upload-artifact@v3
