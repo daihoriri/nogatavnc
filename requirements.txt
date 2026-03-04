@@ -1,2 +1,1 @@
-PyQt6==6.7.1
-Pillow>=10.0.0
+# Tkinter は Python 標準ライブラリのため、インストール不要
