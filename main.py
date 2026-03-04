@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 
 
 class Room:
@@ -47,7 +47,7 @@ class ConfigManager:
         return Path(ConfigManager.CONFIG_FILE)
     
     @staticmethod
-    def load_rooms() -> list[Room]:
+    def load_rooms():
         """設定ファイルから診察室情報を読み込む"""
         config_path = ConfigManager.get_config_path()
         
@@ -71,7 +71,7 @@ class ConfigManager:
             return []
     
     @staticmethod
-    def save_rooms(rooms: list[Room]):
+    def save_rooms(rooms):
         """診察室情報を設定ファイルに保存"""
         config_path = ConfigManager.get_config_path()
         
@@ -87,7 +87,7 @@ class VNCConnector:
     """VNC接続を管理するクラス"""
     
     @staticmethod
-    def connect(room: Room):
+    def connect(room):
         """UltraVNCビューアーでリモート接続"""
         try:
             # UltraVNCビューアーの実行ファイルパスを検索
@@ -107,7 +107,6 @@ class VNCConnector:
             if not viewer_path:
                 # macOSの場合（開発環境用）
                 if sys.platform == 'darwin':
-                    # スタブ実装
                     return True
                 raise FileNotFoundError("UltraVNCビューアーが見つかりません")
             
@@ -120,15 +119,10 @@ class VNCConnector:
             raise Exception(f"VNC接続エラー: {e}")
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(tk.Toplevel):
     """設定ダイアログクラス"""
     
-    def __init__(self, parent=None, room: Room = None):
-        super().__init__(parent)
-        self.room = rtk.Toplevel):
-    """設定ダイアログクラス"""
-    
-    def __init__(self, parent, room: Room = None):
+    def __init__(self, parent, room=None):
         super().__init__(parent)
         self.room = room
         self.result = None
@@ -187,12 +181,31 @@ class SettingsDialog(QDialog):
         try:
             port = int(self.port_input.get())
         except ValueError:
-            port tk.Tk):
+            port = 5900
+        
+        self.result = Room(
+            self.name_input.get(),
+            self.ip_input.get(),
+            port
+        )
+        self.destroy()
+    
+    def on_cancel(self):
+        """キャンセルボタンクリック時"""
+        self.result = None
+        self.destroy()
+    
+    def get_room(self):
+        """入力されたRoom情報を取得"""
+        return self.result
+
+
+class MainWindow(tk.Tk):
     """メインウィンドウクラス"""
     
     def __init__(self):
         super().__init__()
-        self.rooms: list[Room] = []
+        self.rooms = []
         self.init_ui()
         self.load_rooms()
     
@@ -240,7 +253,22 @@ class SettingsDialog(QDialog):
         
         self.connect_button = ttk.Button(
             button_frame,
-            text='接続',delete(0, tk.END)
+            text='接続',
+            command=self.on_connect,
+            state=tk.DISABLED
+        )
+        self.connect_button.pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text='設定',
+            command=self.on_settings
+        ).pack(side=tk.LEFT)
+    
+    def load_rooms(self):
+        """診察室情報を読み込んでリストに表示"""
+        self.rooms = ConfigManager.load_rooms()
+        self.room_list.delete(0, tk.END)
         
         for room in self.rooms:
             self.room_list.insert(tk.END, room.name)
@@ -250,9 +278,10 @@ class SettingsDialog(QDialog):
         if self.room_list.curselection():
             self.connect_button.config(state=tk.NORMAL)
         else:
-            self.connect_button.config(state=tk.DISABLED
-        ).pack(side=tk.LEFT
-        
+            self.connect_button.config(state=tk.DISABLED)
+    
+    def on_connect(self):
+        """接続ボタンクリック時"""
         selection = self.room_list.curselection()
         if not selection:
             return
@@ -267,28 +296,13 @@ class SettingsDialog(QDialog):
                 f'{room.name} ({room.ip_address}) に接続しています...'
             )
         except Exception as e:
-            messagebox.showerror(でリストに表示"""
-        self.rooms = ConfigManager.load_rooms()
-        self.room_list.clear()
-        
-        for room in self.rooms:
-            item = QListWidgetItem(room.name)
-            item.setData(Qt.ItemDataRole.UserRole, room)
-            self.room_list.addItem(item)
+            messagebox.showerror(
+                'エラー',
+                f'接続に失敗しました:\n{str(e)}'
+            )
     
-    def on_selection_changed(self):
-        """リスト選択変更時"""
-        self.connect_button.setEnabled(self.room_list.currentItem() is not None)
-    
-    def on_connect(self):
-        """接続ボタンクリック時"""
-        current_item = self.room_list.currentItem()
-        if not current_item:
-            return
-        
-        room = current_item.data(Qt.ItemDataRole.UserRole)
-        
-        try:
+    def on_settings(self):
+        """設定ボタンクリック時"""
         # 操作選択ダイアログ
         dialog = tk.Toplevel(self)
         dialog.title('設定')
@@ -310,10 +324,11 @@ class SettingsDialog(QDialog):
         
         ttk.Button(dialog, text='新規追加', command=lambda: on_choice('add')).pack(fill=tk.X, padx=20, pady=5)
         ttk.Button(dialog, text='編集', command=lambda: on_choice('edit')).pack(fill=tk.X, padx=20, pady=5)
-        ttk.Button(dialog, text='削除', command=lambda: on_choice('delete')).pack(fill=tk.X, padx=20, pady=5
-            '操作を選択してください:',
-            ['新規追加', '編集', '削除'],
-            0,
+        ttk.Button(dialog, text='削除', command=lambda: on_choice('delete')).pack(fill=tk.X, padx=20, pady=5)
+    
+    def add_room(self):
+        """新規診察室を追加"""
+        dialog = SettingsDialog(self)
         self.wait_window(dialog)
         
         new_room = dialog.get_room()
@@ -325,10 +340,11 @@ class SettingsDialog(QDialog):
             self.rooms.append(new_room)
             ConfigManager.save_rooms(self.rooms)
             self.load_rooms()
-            messagebox.showinfo(
-            self.delete_room()
+            messagebox.showinfo('成功', f'{new_room.name} を追加しました')
     
-    def selection = self.room_list.curselection()
+    def edit_room(self):
+        """診察室情報を編集"""
+        selection = self.room_list.curselection()
         if not selection:
             messagebox.showwarning('警告', '編集する診察室を選択してください')
             return
@@ -349,9 +365,10 @@ class SettingsDialog(QDialog):
             self.rooms[index] = updated_room
             ConfigManager.save_rooms(self.rooms)
             self.load_rooms()
-            messagebox.showinfo(
-        current_item = self.room_list.currentItem()
-        room = current_item.data(Qt.ItemDataRole.UserRole)
+            messagebox.showinfo('成功', f'{updated_room.name} を更新しました')
+    
+    def delete_room(self):
+        """診察室を削除"""
         selection = self.room_list.curselection()
         if not selection:
             messagebox.showwarning('警告', '削除する診察室を選択してください')
@@ -375,25 +392,7 @@ class SettingsDialog(QDialog):
 def main():
     """メイン関数"""
     app = MainWindow()
-    app.mainloop(
-            '確認',
-            f'{room.name} を削除してもよろしいですか？',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            self.rooms.remove(room)
-            ConfigManager.save_rooms(self.rooms)
-            self.load_rooms()
-            QMessageBox.information(self, '成功', f'{room.name} を削除しました')
-
-
-def main():
-    """メイン関数"""
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    app.mainloop()
 
 
 if __name__ == '__main__':
