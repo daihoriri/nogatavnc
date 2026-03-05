@@ -26,7 +26,7 @@ jobs:
 
     - name: Build EXE with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name VNCRemoteDesktop main.py
+        pyinstaller --onefile --windowed --name VNCRemoteDesktop --exclude-module PIL --exclude-module numpy --exclude-module matplotlib --exclude-module pandas --exclude-module scipy --exclude-module pytest --strip main.py
 
     - name: Upload EXE artifact
       uses: actions/upload-artifact@v4
