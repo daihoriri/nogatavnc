@@ -294,7 +294,7 @@ class MainWindow(tk.Tk):
     def init_ui(self):
         """UIの初期化"""
         self.title('VNC リモートデスクトップ接続')
-        self.geometry('500x450')
+        self.geometry('380x450')
         
         # メインフレーム
         main_frame = ttk.Frame(self, padding="10")
@@ -321,7 +321,8 @@ class MainWindow(tk.Tk):
             list_frame,
             yscrollcommand=scrollbar.set,
             font=('', 11),
-            height=12
+            height=12,
+            width=24
         )
         self.room_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.room_list.yview)
@@ -417,12 +418,10 @@ class MainWindow(tk.Tk):
         # 操作選択ダイアログ
         dialog = tk.Toplevel(self)
         dialog.title('設定')
-        dialog.geometry('300x220')
+        dialog.geometry('300x260')
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
-        
-        ttk.Label(dialog, text='操作を選択してください:', font=('', 10)).pack(pady=10)
         
         def on_choice(action):
             dialog.destroy()
@@ -435,11 +434,15 @@ class MainWindow(tk.Tk):
             elif action == 'ultravnc':
                 self.set_ultravnc_path()
         
-        ttk.Button(dialog, text='新規追加', command=lambda: on_choice('add')).pack(fill=tk.X, padx=20, pady=5)
-        ttk.Button(dialog, text='編集', command=lambda: on_choice('edit')).pack(fill=tk.X, padx=20, pady=5)
-        ttk.Button(dialog, text='削除', command=lambda: on_choice('delete')).pack(fill=tk.X, padx=20, pady=5)
-        ttk.Separator(dialog, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=20, pady=5)
-        ttk.Button(dialog, text='UltraVNCパス設定', command=lambda: on_choice('ultravnc')).pack(fill=tk.X, padx=20, pady=5)
+        ttk.Label(dialog, text='診察室の操作:', font=('', 10, 'bold')).pack(pady=(10, 5))
+        ttk.Button(dialog, text='新規追加', command=lambda: on_choice('add')).pack(fill=tk.X, padx=20, pady=3)
+        ttk.Button(dialog, text='編集', command=lambda: on_choice('edit')).pack(fill=tk.X, padx=20, pady=3)
+        ttk.Button(dialog, text='削除', command=lambda: on_choice('delete')).pack(fill=tk.X, padx=20, pady=3)
+        
+        ttk.Separator(dialog, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=20, pady=10)
+        
+        ttk.Label(dialog, text='全体設定:', font=('', 10, 'bold')).pack(pady=(0, 5))
+        ttk.Button(dialog, text='UltraVNCパス設定', command=lambda: on_choice('ultravnc')).pack(fill=tk.X, padx=20, pady=3)
     
     def add_room(self):
         """新規診察室を追加"""
