@@ -12,6 +12,15 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 
+def get_resource_path(relative_path: str) -> str:
+    """PyInstaller対応のリソースパスを取得"""
+    if getattr(sys, 'frozen', False):
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+
 class Room:
     """診察室情報を管理するクラス"""
     
@@ -281,6 +290,7 @@ class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.rooms = []
+        self._app_icon_image = None
         self.init_ui()
         # 診察室情報を読み込む（config.jsonから、なければデフォルト）
         self.rooms = ConfigManager.load_rooms()
@@ -295,6 +305,7 @@ class MainWindow(tk.Tk):
         """UIの初期化"""
         self.title('VNC リモートデスクトップ接続')
         self.geometry('380x450')
+        self.apply_app_icon()
         
         # メインフレーム
         main_frame = ttk.Frame(self, padding="10")
@@ -347,6 +358,34 @@ class MainWindow(tk.Tk):
             text='設定',
             command=self.on_settings
         ).pack(side=tk.LEFT)
+
+    def apply_app_icon(self):
+        """アプリのウィンドウ/タスクバーアイコンを設定"""
+        # Windowsでタスクバーアイコンを安定表示させるためのID設定
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('nogata.vnc.remotedesktop')
+            except Exception:
+                pass
+
+        # 1) .ico を優先
+        try:
+            ico_path = get_resource_path(os.path.join('assets', 'app_icon.ico'))
+            if os.path.exists(ico_path):
+                self.iconbitmap(default=ico_path)
+                return
+        except Exception:
+            pass
+
+        # 2) フォールバック: .png
+        try:
+            png_path = get_resource_path(os.path.join('assets', 'app_icon.png'))
+            if os.path.exists(png_path):
+                self._app_icon_image = tk.PhotoImage(file=png_path)
+                self.iconphoto(True, self._app_icon_image)
+        except Exception:
+            pass
     
     def load_rooms(self):
         """診察室情報をリストに表示"""

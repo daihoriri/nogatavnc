@@ -26,7 +26,7 @@ jobs:
 
     - name: Build EXE with PyInstaller
       run: |
-        pyinstaller --onedir --windowed --name VNCRemoteDesktop --icon assets/app_icon.ico --exclude-module PIL --exclude-module numpy --exclude-module matplotlib --exclude-module pandas --exclude-module scipy --exclude-module pytest main.py
+        pyinstaller --onedir --windowed --name VNCRemoteDesktop --icon assets/app_icon.ico --add-data "assets/app_icon.ico;assets" --add-data "assets/app_icon.png;assets" --exclude-module PIL --exclude-module numpy --exclude-module matplotlib --exclude-module pandas --exclude-module scipy --exclude-module pytest main.py
 
     - name: Upload EXE artifact
       uses: actions/upload-artifact@v4
