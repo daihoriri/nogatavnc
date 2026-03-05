@@ -372,15 +372,45 @@ class MainWindow(tk.Tk):
         
         try:
             VNCConnector.connect(room)
-            messagebox.showinfo(
-                '接続中',
-                f'{room.name} ({room.ip_address}) に接続しています...'
-            )
+            # 接続処理を別スレッドで実行し、メッセージボックスを自動閉じ
+            self.show_connection_message(room)
         except Exception as e:
             messagebox.showerror(
                 'エラー',
                 f'接続に失敗しました:\n{str(e)}'
             )
+    
+    def show_connection_message(self, room):
+        """接続中メッセージを表示して自動閉じ"""
+        import threading
+        import time
+        
+        # メッセージウィンドウを作成
+        msg_window = tk.Toplevel(self)
+        msg_window.title('接続中')
+        msg_window.geometry('300x100')
+        msg_window.resizable(False, False)
+        msg_window.transient(self)
+        msg_window.grab_set()
+        
+        # メッセージラベル
+        label = ttk.Label(
+            msg_window,
+            text=f'{room.name}\n({room.ip_address})\nに接続しています...',
+            font=('', 11)
+        )
+        label.pack(expand=True)
+        
+        # 2秒後に自動閉じ
+        def auto_close():
+            time.sleep(2)
+            try:
+                msg_window.destroy()
+            except:
+                pass
+        
+        thread = threading.Thread(target=auto_close, daemon=True)
+        thread.start()
     
     def on_settings(self):
         """設定ボタンクリック時"""
