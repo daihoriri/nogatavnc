@@ -15,16 +15,18 @@ from tkinter import ttk, messagebox
 class Room:
     """診察室情報を管理するクラス"""
     
-    def __init__(self, name: str, ip_address: str, port: int = 5900):
+    def __init__(self, name: str, ip_address: str, port: int = 5900, password: str = ''):
         self.name = name
         self.ip_address = ip_address
         self.port = port
+        self.password = password
     
     def to_dict(self):
         return {
             'name': self.name,
             'ip_address': self.ip_address,
-            'port': self.port
+            'port': self.port,
+            'password': self.password
         }
     
     @staticmethod
@@ -32,7 +34,8 @@ class Room:
         return Room(
             data['name'],
             data['ip_address'],
-            data.get('port', 5900)
+            data.get('port', 5900),
+            data.get('password', '')
         )
 
 
@@ -102,7 +105,8 @@ class ConfigManager:
             rooms.append(Room(
                 room_data.get('name', ''),
                 room_data.get('ip_address', ''),
-                room_data.get('port', 5900)
+                room_data.get('port', 5900),
+                room_data.get('password', '')
             ))
         return rooms
     
@@ -115,7 +119,8 @@ class ConfigManager:
             rooms_data.append({
                 'name': room.name,
                 'ip_address': room.ip_address,
-                'port': room.port
+                'port': room.port,
+                'password': room.password
             })
         config['rooms'] = rooms_data
         ConfigManager.save_config(config)
@@ -169,9 +174,12 @@ class VNCConnector:
                     return True
                 raise FileNotFoundError(f"UltraVNCビューアーが見つかりません: {viewer_path}")
             
-            # VNC接続コマンド実行
+            # VNC接続コマンド実行（パスワード付き）
             connection_str = f"{room.ip_address}:{room.port}"
-            subprocess.Popen([viewer_path, connection_str])
+            if room.password:
+                subprocess.Popen([viewer_path, connection_str, '-password', room.password])
+            else:
+                subprocess.Popen([viewer_path, connection_str])
             return True
             
         except Exception as e:
@@ -190,7 +198,7 @@ class SettingsDialog(tk.Toplevel):
     def init_ui(self):
         """UIの初期化"""
         self.title('診察室設定')
-        self.geometry('400x220')
+        self.geometry('400x270')
         self.resizable(False, False)
         
         # モーダルダイアログにする
@@ -218,11 +226,18 @@ class SettingsDialog(tk.Toplevel):
         # ポート番号
         ttk.Label(main_frame, text='ポート番号 (通常は5900):').pack(anchor=tk.W, pady=(0, 5))
         self.port_input = ttk.Entry(main_frame, width=40)
-        self.port_input.pack(fill=tk.X, pady=(0, 15))
+        self.port_input.pack(fill=tk.X, pady=(0, 10))
         if self.room:
             self.port_input.insert(0, str(self.room.port))
         else:
             self.port_input.insert(0, '5900')
+        
+        # パスワード
+        ttk.Label(main_frame, text='VNCパスワード (省略可):').pack(anchor=tk.W, pady=(0, 5))
+        self.password_input = ttk.Entry(main_frame, width=40, show='*')
+        self.password_input.pack(fill=tk.X, pady=(0, 15))
+        if self.room:
+            self.password_input.insert(0, self.room.password)
         
         # ボタン
         button_frame = ttk.Frame(main_frame)
@@ -245,7 +260,8 @@ class SettingsDialog(tk.Toplevel):
         self.result = Room(
             self.name_input.get(),
             self.ip_input.get(),
-            port
+            port,
+            self.password_input.get()
         )
         self.destroy()
     
