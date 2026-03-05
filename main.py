@@ -37,32 +37,133 @@ class Room:
 
 
 class ConfigManager:
-    """診察室情報を管理するクラス"""
+    """設定管理クラス"""
+    
+    @staticmethod
+    def get_config_dir():
+        """設定ファイルのディレクトリを取得（exeファイルと同じ場所）"""
+        if getattr(sys, 'frozen', False):
+            # PyInstallerでパッケージ化されている場合
+            return os.path.dirname(sys.executable)
+        else:
+            # 開発環境での実行時
+            return os.path.dirname(os.path.abspath(__file__))
+    
+    @staticmethod
+    def get_config_path():
+        """設定ファイルのパスを取得"""
+        return os.path.join(ConfigManager.get_config_dir(), 'config.json')
     
     @staticmethod
     def get_default_rooms():
-        """デフォルト診察室情報を取得"""
+        """デフォルトの診察室情報を返す"""
         return [
-            Room('診察室1', '192.168.1.10'),
-            Room('診察室2', '192.168.1.20'),
-            Room('診察室3', '192.168.1.30'),
-            Room('診察室4', '192.168.1.40'),
+            Room('診察室1', '192.168.1.10', 5900),
+            Room('診察室2', '192.168.1.11', 5900),
+            Room('診察室3', '192.168.1.12', 5900),
+            Room('診察室4', '192.168.1.13', 5900),
         ]
+    
+    @staticmethod
+    def load_config():
+        """設定ファイルを読み込む"""
+        config_path = ConfigManager.get_config_path()
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f'設定ファイルの読み込みに失敗: {e}')
+                return {}
+        return {}
+    
+    @staticmethod
+    def save_config(config):
+        """設定ファイルを保存"""
+        config_path = ConfigManager.get_config_path()
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f'設定ファイルの保存に失敗: {e}')
+    
+    @staticmethod
+    def load_rooms():
+        """診察室情報を読み込む"""
+        config = ConfigManager.load_config()
+        rooms_data = config.get('rooms', [])
+        
+        if not rooms_data:
+            # デフォルトの診察室情報を返す
+            return ConfigManager.get_default_rooms()
+        
+        rooms = []
+        for room_data in rooms_data:
+            rooms.append(Room(
+                room_data.get('name', ''),
+                room_data.get('ip_address', ''),
+                room_data.get('port', 5900)
+            ))
+        return rooms
+    
+    @staticmethod
+    def save_rooms(rooms):
+        """診察室情報を保存"""
+        config = ConfigManager.load_config()
+        rooms_data = []
+        for room in rooms:
+            rooms_data.append({
+                'name': room.name,
+                'ip_address': room.ip_address,
+                'port': room.port
+            })
+        config['rooms'] = rooms_data
+        ConfigManager.save_config(config)
+    
+    @staticmethod
+    def load_ultravnc_path():
+        """UltraVNCパスを読み込む"""
+        config = ConfigManager.load_config()
+        return config.get('ultravnc_path', '')
+    
+    @staticmethod
+    def save_ultravnc_path(path):
+        """UltraVNCパスを保存"""
+        config = ConfigManager.load_config()
+        config['ultravnc_path'] = path
+        ConfigManager.save_config(config)
 
 
 class VNCConnector:
     """VNC接続を管理するクラス"""
     
-    # UltraVNCパスを固定
-    ULTRAVNC_PATH = r"C:\Program Files\uvnc bvba\UltraVNC\vncviewer.exe"
+    @staticmethod
+    def get_viewer_path():
+        """UltraVNC Viewerのパスを取得"""
+        # 設定ファイルからパスを取得
+        custom_path = ConfigManager.load_ultravnc_path()
+        if custom_path and os.path.exists(custom_path):
+            return custom_path
+        
+        # デフォルトパス
+        default_path = r"C:\Program Files\uvnc bvba\UltraVNC\vncviewer.exe"
+        if os.path.exists(default_path):
+            return default_path
+        
+        # 別の一般的なパスも確認
+        alt_path = r"C:\Program Files (x86)\uvnc bvba\UltraVNC\vncviewer.exe"
+        if os.path.exists(alt_path):
+            return alt_path
+        
+        return None
     
     @staticmethod
     def connect(room):
         """UltraVNCビューアーでリモート接続"""
         try:
-            viewer_path = VNCConnector.ULTRAVNC_PATH
+            viewer_path = VNCConnector.get_viewer_path()
             
-            if not os.path.exists(viewer_path):
+            if not viewer_path:
                 # macOSの場合（開発環境用）
                 if sys.platform == 'darwin':
                     return True
@@ -165,8 +266,13 @@ class MainWindow(tk.Tk):
         super().__init__()
         self.rooms = []
         self.init_ui()
-        # デフォルト診察室を読み込む
-        self.rooms = ConfigManager.get_default_rooms()
+        # 診察室情報を読み込む（config.jsonから、なければデフォルト）
+        self.rooms = ConfigManager.load_rooms()
+        
+        # 初回起動時にデフォルト設定を保存
+        if not os.path.exists(ConfigManager.get_config_path()):
+            ConfigManager.save_rooms(self.rooms)
+        
         self.load_rooms()
     
     def init_ui(self):
@@ -265,7 +371,7 @@ class MainWindow(tk.Tk):
         # 操作選択ダイアログ
         dialog = tk.Toplevel(self)
         dialog.title('設定')
-        dialog.geometry('300x180')
+        dialog.geometry('300x220')
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
@@ -280,10 +386,14 @@ class MainWindow(tk.Tk):
                 self.edit_room()
             elif action == 'delete':
                 self.delete_room()
+            elif action == 'ultravnc':
+                self.set_ultravnc_path()
         
         ttk.Button(dialog, text='新規追加', command=lambda: on_choice('add')).pack(fill=tk.X, padx=20, pady=5)
         ttk.Button(dialog, text='編集', command=lambda: on_choice('edit')).pack(fill=tk.X, padx=20, pady=5)
         ttk.Button(dialog, text='削除', command=lambda: on_choice('delete')).pack(fill=tk.X, padx=20, pady=5)
+        ttk.Separator(dialog, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=20, pady=5)
+        ttk.Button(dialog, text='UltraVNCパス設定', command=lambda: on_choice('ultravnc')).pack(fill=tk.X, padx=20, pady=5)
     
     def add_room(self):
         """新規診察室を追加"""
@@ -297,6 +407,7 @@ class MainWindow(tk.Tk):
                 return
             
             self.rooms.append(new_room)
+            ConfigManager.save_rooms(self.rooms)
             self.load_rooms()
             messagebox.showinfo('成功', f'{new_room.name} を追加しました')
     
@@ -321,6 +432,7 @@ class MainWindow(tk.Tk):
             
             # 既存の情報を更新
             self.rooms[index] = updated_room
+            ConfigManager.save_rooms(self.rooms)
             self.load_rooms()
             messagebox.showinfo('成功', f'{updated_room.name} を更新しました')
     
@@ -341,8 +453,60 @@ class MainWindow(tk.Tk):
         
         if result:
             self.rooms.remove(room)
+            ConfigManager.save_rooms(self.rooms)
             self.load_rooms()
             messagebox.showinfo('成功', f'{room.name} を削除しました')
+    
+    def set_ultravnc_path(self):
+        """UltraVNCビューアーのパスを設定"""
+        # 現在の設定パスを取得
+        current_path = ConfigManager.load_ultravnc_path()
+        
+        # パス入力ダイアログ
+        dialog = tk.Toplevel(self)
+        dialog.title('UltraVNCパス設定')
+        dialog.geometry('500x200')
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        main_frame = ttk.Frame(dialog, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main_frame, text='UltraVNCビューアーのパスを入力してください', font=('', 10)).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(main_frame, text='例: C:\\Program Files\\uvnc bvba\\UltraVNC\\vncviewer.exe', font=('', 9), foreground='gray').pack(anchor=tk.W, pady=(0, 5))
+        
+        # パス入力フィールド
+        ttk.Label(main_frame, text='パス:').pack(anchor=tk.W, pady=(0, 5))
+        path_input = ttk.Entry(main_frame, width=60)
+        path_input.pack(fill=tk.X, pady=(0, 15))
+        if current_path:
+            path_input.insert(0, current_path)
+        
+        # ボタン
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        def on_ok():
+            path = path_input.get().strip()
+            if path:
+                ConfigManager.save_ultravnc_path(path)
+                messagebox.showinfo('成功', 'UltraVNCパスを設定しました')
+                dialog.destroy()
+            else:
+                ConfigManager.save_ultravnc_path('')
+                messagebox.showinfo('成功', 'UltraVNCパスをリセットしました（デフォルトパスを使用）')
+                dialog.destroy()
+        
+        def on_cancel():
+            dialog.destroy()
+        
+        def on_reset():
+            path_input.delete(0, tk.END)
+        
+        ttk.Button(button_frame, text='OK', command=on_ok).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text='キャンセル', command=on_cancel).pack(side=tk.LEFT)
+        ttk.Button(button_frame, text='リセット', command=on_reset).pack(side=tk.LEFT, padx=50)
 
 
 def main():
